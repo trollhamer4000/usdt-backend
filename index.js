@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const { connect } = require("./db");
-const accountsRouter = require("./routes/accounts");
+const accountsRouter = require("./accounts");
 
 const app = express();
 app.use(cors());
