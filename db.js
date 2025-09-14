@@ -1,20 +1,29 @@
-import { MongoClient } from "mongodb";
+import express from "express";
+import dotenv from "dotenv";
+import { connectDB } from "./db.js";
 
-const uri = process.env.MONGODB_URI; // ✅ matches Render
+dotenv.config();
 
-const client = new MongoClient(uri, {
-  ssl: true,
-  tlsAllowInvalidCertificates: false,
-  serverSelectionTimeoutMS: 10000,
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
+
+// Routes
+app.get("/", (req, res) => {
+  res.send("🚀 Server is running!");
 });
 
-export async function connectDB() {
-  try {
-    await client.connect();
-    console.log("✅ Connected to MongoDB");
-    return client.db();
-  } catch (err) {
-    console.error("❌ Failed to connect to DB", err);
+// Start after DB connection
+connectDB()
+  .then((db) => {
+    console.log("✅ MongoDB connected, starting server...");
+    app.listen(PORT, () => {
+      console.log(`⚡ Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ Could not start server", err);
     process.exit(1);
-  }
-}
+  });
