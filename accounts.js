@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("./db");
-const { sendVerificationEmail, validateCode } = require("../utils/verification");
+const { sendVerificationEmail, validateCode } = require("./verification");
 
 // Helper: generate unique recoveryId (4 letters + 3 digits)
 function generateRecoveryId() {
