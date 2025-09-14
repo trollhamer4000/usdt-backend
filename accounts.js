@@ -60,7 +60,7 @@ router.post("/send_verification", async (req, res) => {
 
   try {
     const code = await sendVerificationEmail(email);
-    console.log(Verification code for ${email}: ${code});
+    console.log(`Verification code for ${email}: ${code}`);
     res.send({ success: true, message: "Verification email sent" });
   } catch (err) {
     console.error(err);
