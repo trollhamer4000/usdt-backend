@@ -1,23 +1,20 @@
-const { MongoClient } = require("mongodb");
-require("dotenv").config();
+import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGODB_URI;
-const dbName = "usdt_wallets"; // database name
-let db;
+const uri = process.env.MONGO_URI;
 
-async function connect() {
-  if (!db) {
-    const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  ssl: true,
+  tlsAllowInvalidCertificates: false, // keep secure
+  serverSelectionTimeoutMS: 10000,    // helpful for Render
+});
+
+export async function connectDB() {
+  try {
     await client.connect();
-    console.log("✅ Connected to MongoDB Atlas");
-    db = client.db(dbName);
+    console.log("✅ Connected to MongoDB");
+    return client.db(); // return db object
+  } catch (err) {
+    console.error("❌ Failed to connect to DB", err);
+    process.exit(1);
   }
-  return db;
 }
-
-function getDb() {
-  if (!db) throw new Error("Database not connected");
-  return db;
-}
-
-module.exports = { connect, getDb };
