@@ -1,11 +1,17 @@
+// db.js
 import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGODB_URI; // ✅ matches Render
+const uri = process.env.MONGODB_URI; // ✅ Ensure this is set in Render
 
 let client;
 let database;
 
 export async function connectDB() {
+  if (database) {
+    // Already connected
+    return database;
+  }
+
   try {
     client = new MongoClient(uri, {
       ssl: true,
