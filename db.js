@@ -12,14 +12,13 @@ let database;
 export async function connectDB() {
   try {
     const options = {
-      ssl: true,
-      tlsAllowInvalidCertificates: false,
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 10000, // ✅ let Mongo handle TLS
     };
 
     console.log("⚙️ MongoClient options:", options);
 
     client = new MongoClient(uri, options);
+    console.log("🚀 MongoClient instance created, attempting connection...");
 
     await client.connect();
     database = client.db(); // Save reference globally
