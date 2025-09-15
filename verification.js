@@ -1,4 +1,4 @@
-const nodemailer = require("nodemailer");
+import nodemailer from "nodemailer";
 
 const verificationCodes = {};
 const MAX_ATTEMPTS = 5;
@@ -8,30 +8,30 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function sendVerificationEmail(email) {
+export async function sendVerificationEmail(email) {
   const code = generateCode();
   verificationCodes[email] = { code, expires: Date.now() + CODE_TTL, attempts: 0 };
 
-  let transporter = nodemailer.createTransport({
+  const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
+      pass: process.env.EMAIL_PASS,
+    },
   });
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
     subject: "USDT Vault Verification Code",
-    text: `Your verification code is: ${code}. It expires in 5 minutes.`
+    text: `Your verification code is: ${code}. It expires in 5 minutes.`,
   };
 
   await transporter.sendMail(mailOptions);
   return code;
 }
 
-function validateCode(email, code) {
+export function validateCode(email, code) {
   const entry = verificationCodes[email];
   if (!entry) return { valid: false, reason: "Code not found" };
 
@@ -53,5 +53,3 @@ function validateCode(email, code) {
 
   return { valid: false, reason: "Invalid code" };
 }
-
-module.exports = { sendVerificationEmail, validateCode };

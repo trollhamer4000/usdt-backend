@@ -1,29 +1,32 @@
-import express from "express";
-import dotenv from "dotenv";
-import { connectDB } from "./db.js";
+import { MongoClient } from "mongodb";
 
-dotenv.config();
+const uri = process.env.MONGODB_URI; // ✅ matches Render
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+let client;
+let database;
 
-// Middleware
-app.use(express.json());
-
-// Routes
-app.get("/", (req, res) => {
-  res.send("🚀 Server is running!");
-});
-
-// Start after DB connection
-connectDB()
-  .then((db) => {
-    console.log("✅ MongoDB connected, starting server...");
-    app.listen(PORT, () => {
-      console.log(`⚡ Server running on port ${PORT}`);
+export async function connectDB() {
+  try {
+    client = new MongoClient(uri, {
+      ssl: true,
+      tlsAllowInvalidCertificates: false,
+      serverSelectionTimeoutMS: 10000,
     });
-  })
-  .catch((err) => {
-    console.error("❌ Could not start server", err);
+
+    await client.connect();
+    database = client.db(); // Save reference globally
+    console.log("✅ Connected to MongoDB");
+    return database;
+  } catch (err) {
+    console.error("❌ Failed to connect to DB", err);
     process.exit(1);
-  });
+  }
+}
+
+// Helper so you can call db anywhere after connectDB()
+export function getDb() {
+  if (!database) {
+    throw new Error("❌ Database not initialized. Call connectDB() first.");
+  }
+  return database;
+}

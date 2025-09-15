@@ -1,7 +1,8 @@
-const express = require("express");
-const router = express.Router();
-const { getDb } = require("./db");
-const { sendVerificationEmail, validateCode } = require("./verification");
+import { Router } from "express";
+import { getDb } from "./db.js";
+import { sendVerificationEmail, validateCode } from "./verification.js";
+
+const router = Router();
 
 // Helper: generate unique recoveryId (4 letters + 3 digits)
 function generateRecoveryId() {
@@ -96,4 +97,4 @@ router.get("/name/:walletAddress", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

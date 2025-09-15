@@ -1,10 +1,11 @@
+import dotenv from "dotenv";
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
 import { connectDB } from "./db.js";
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const { connect } = require("./db");
-const accountsRouter = require("./accounts");
+import accountsRouter from "./accounts.js";
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -18,8 +19,12 @@ app.get("/", (req, res) => res.send("USDT Backend is running 🚀"));
 
 // Start server after DB connection
 const PORT = process.env.PORT || 5000;
-connect().then(() => {
-  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-}).catch(err => {
-  console.error("❌ Failed to connect to DB", err);
-});
+connectDB()
+  .then(() => {
+    app.listen(PORT, () =>
+      console.log(`⚡ Server running on http://localhost:${PORT}`)
+    );
+  })
+  .catch((err) => {
+    console.error("❌ Failed to connect to DB", err);
+  });
