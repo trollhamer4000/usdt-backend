@@ -2,19 +2,40 @@
 import pkg from "pg";
 const { Pool } = pkg;
 
-// ✅ Make sure DATABASE_URL is defined
-if (!process.env.DATABASE_URL) {
-  throw new Error("❌ DATABASE_URL environment variable is not set.");
-}
+let pool;
 
-// ✅ Create connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }, // Render requires SSL
-});
+// ✅ Initialize DB connection lazily
+function initPool() {
+  const dbUrl = process.env.DATABASE_URL;
+
+  // 🔍 Print environment + DB info
+  console.log("🌍 NODE_ENV:", process.env.NODE_ENV || "not set");
+  if (dbUrl) {
+    // Mask username/password for safety
+    const safeUrl = dbUrl.replace(/:\/\/(.):(.)@/, "://*:*@");
+    console.log("🗄️ Using DATABASE_URL:", safeUrl);
+  } else {
+    console.warn("⚠️ DATABASE_URL is NOT set!");
+    return null;
+  }
+
+  if (!pool) {
+    pool = new Pool({
+      connectionString: dbUrl,
+      ssl: { rejectUnauthorized: false }, // Render requires SSL
+    });
+  }
+
+  return pool;
+}
 
 // ✅ Connect and test the database
 export async function connectDB() {
+  const pool = initPool();
+  if (!pool) {
+    throw new Error("❌ DATABASE_URL is missing. Cannot connect to Postgres.");
+  }
+
   try {
     const client = await pool.connect();
     await client.query("SELECT 1"); // simple test query
@@ -29,6 +50,8 @@ export async function connectDB() {
 
 // ✅ General query function
 export async function query(text, params) {
+  const pool = initPool();
+  if (!pool) throw new Error("❌ Database not initialized.");
   try {
     return await pool.query(text, params);
   } catch (err) {
