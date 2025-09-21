@@ -1,16 +1,45 @@
 import { Router } from "express";
-import { getDb } from "./db.js";
+import { query } from "./db.js";
 import { sendVerificationEmail, validateCode } from "./verification.js";
 
 const router = Router();
 
-// Helper: generate unique recoveryId (4 letters + 3 digits)
+// -------------------
+// Generate RecoveryId (4 letters + 3 digits)
+// -------------------
 function generateRecoveryId() {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   let id = "";
   for (let i = 0; i < 4; i++) id += letters.charAt(Math.floor(Math.random() * letters.length));
   for (let i = 0; i < 3; i++) id += Math.floor(Math.random() * 10);
   return id;
+}
+
+// -------------------
+// Ensure Unique RecoveryId
+// -------------------
+async function generateUniqueRecoveryId(email, walletAddress, nameTag, blobs) {
+  while (true) {
+    const candidate = generateRecoveryId();
+
+    try {
+      // Try inserting directly (relies on UNIQUE constraint in DB)
+      const result = await query(
+        `INSERT INTO users (email, walletAddress, nameTag, blobs, recovery_id, subscriptionStatus)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING recovery_id`,
+        [email, walletAddress, nameTag, blobs, candidate, "inactive"]
+      );
+
+      return result.rows[0].recoveryid; // (lowercase property)
+    } catch (err) {
+      if (err.code === "23505") {
+        // Duplicate recovery_id, loop again
+        continue;
+      }
+      throw err; // Other DB error
+    }
+  }
 }
 
 // -------------------
@@ -24,76 +53,19 @@ router.post("/create_account", async (req, res) => {
   }
 
   try {
-    const db = getDb();
-    const existing = await db.collection("users").findOne({ email });
-    if (existing) return res.status(400).send({ success: false, error: "Email already exists" });
-
-    let recoveryId, unique = false;
-    while (!unique) {
-      recoveryId = generateRecoveryId();
-      const check = await db.collection("users").findOne({ recoveryId });
-      if (!check) unique = true;
+    // Check if email already exists
+    const existingEmail = await query("SELECT 1 FROM users WHERE email = $1", [email]);
+    if (existingEmail.rowCount > 0) {
+      return res.status(400).send({ success: false, error: "Email already exists" });
     }
 
-    const newUser = {
-      email,
-      walletAddress,
-      nameTag,
-      blobs,
-      recoveryId,
-      subscriptionStatus: "inactive"
-    };
-    await db.collection("users").insertOne(newUser);
+    // Generate unique recovery_id and insert user
+    const recoveryId = await generateUniqueRecoveryId(email, walletAddress, nameTag, blobs);
 
     res.send({ success: true, recoveryId });
   } catch (err) {
     console.error(err);
     res.status(500).send({ success: false, error: "Server error" });
-  }
-});
-
-// -------------------
-// Send verification code
-// -------------------
-router.post("/send_verification", async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).send({ error: "Email required" });
-
-  try {
-    const code = await sendVerificationEmail(email);
-    console.log(`Verification code for ${email}: ${code}`);
-    res.send({ success: true, message: "Verification email sent" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: "Failed to send email" });
-  }
-});
-
-// -------------------
-// Verify code
-// -------------------
-router.post("/verify_code", async (req, res) => {
-  const { email, code } = req.body;
-  if (!email || !code) return res.status(400).send({ error: "Email and code required" });
-
-  const result = validateCode(email, code);
-  if (result.valid) return res.send({ success: true, message: "Email verified" });
-  res.status(400).send({ error: result.reason });
-});
-
-// -------------------
-// Get nameTag by wallet
-// -------------------
-router.get("/name/:walletAddress", async (req, res) => {
-  const { walletAddress } = req.params;
-  try {
-    const db = getDb();
-    const user = await db.collection("users").findOne({ walletAddress });
-    if (!user) return res.status(404).send({ error: "Wallet not found" });
-    res.send({ nameTag: user.nameTag });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: "Server error" });
   }
 });
 
