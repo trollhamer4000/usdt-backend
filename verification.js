@@ -32,7 +32,7 @@ export async function sendVerificationEmail(email) {
     from: process.env.EMAIL_USER,
     to: email,
     subject: "USDT Vault Verification Code",
-    text: Your verification code is: ${code}. It expires in 5 minutes.,
+    text: `Your verification code is: ${code}. It expires in 5 minutes.`,
   };
 
   try {
