@@ -13,7 +13,7 @@ app.use(bodyParser.json());
 
 // 🔍 Log every incoming request
 app.use((req, res, next) => {
-  console.log(📡 ${req.method} ${req.originalUrl}, req.body || {});
+  console.log(`📡 ${req.method} ${req.originalUrl}`, req.body || {});
   next();
 });
 
