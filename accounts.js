@@ -23,7 +23,6 @@ async function generateUniqueRecoveryId(email, walletAddress, nameTag, blobs) {
     const candidate = generateRecoveryId();
 
     try {
-      // Try inserting directly (relies on UNIQUE constraint in DB)
       const result = await query(
         `INSERT INTO users (email, walletAddress, nameTag, blobs, recovery_id, subscriptionStatus)
          VALUES ($1, $2, $3, $4, $5, $6)
@@ -34,10 +33,9 @@ async function generateUniqueRecoveryId(email, walletAddress, nameTag, blobs) {
       return result.rows[0].recoveryid; // (lowercase property)
     } catch (err) {
       if (err.code === "23505") {
-        // Duplicate recovery_id, loop again
-        continue;
+        continue; // try again if duplicate recovery_id
       }
-      throw err; // Other DB error
+      throw err;
     }
   }
 }
@@ -53,19 +51,51 @@ router.post("/create_account", async (req, res) => {
   }
 
   try {
-    // Check if email already exists
     const existingEmail = await query("SELECT 1 FROM users WHERE email = $1", [email]);
     if (existingEmail.rowCount > 0) {
       return res.status(400).send({ success: false, error: "Email already exists" });
     }
 
-    // Generate unique recovery_id and insert user
     const recoveryId = await generateUniqueRecoveryId(email, walletAddress, nameTag, blobs);
-
     res.send({ success: true, recoveryId });
   } catch (err) {
     console.error(err);
     res.status(500).send({ success: false, error: "Server error" });
+  }
+});
+
+// -------------------
+// Email Verification Routes
+// -------------------
+
+// Send verification email
+router.post("/send-verification", async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).send({ success: false, error: "Email is required" });
+  }
+
+  try {
+    await sendVerificationEmail(email);
+    res.send({ success: true });
+  } catch (err) {
+    console.error("❌ Send verification failed:", err.message);
+    res.status(500).send({ success: false, error: "Failed to send verification email" });
+  }
+});
+
+// Verify code
+router.post("/verify-code", (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) {
+    return res.status(400).send({ success: false, error: "Email and code are required" });
+  }
+
+  const result = validateCode(email, code);
+  if (result.valid) {
+    res.send({ success: true });
+  } else {
+    res.status(400).send({ success: false, error: result.reason });
   }
 });
 
