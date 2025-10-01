@@ -30,7 +30,7 @@ async function generateUniqueRecoveryId(email, walletAddress, nameTag, blobs) {
         [email, walletAddress, nameTag, blobs, candidate, "inactive"]
       );
 
-      return result.rows[0].recoveryid; // (lowercase property)
+      return result.rows[0].recovery_id; // (lowercase property)
     } catch (err) {
       if (err.code === "23505") {
         continue; // try again if duplicate recovery_id
@@ -88,7 +88,7 @@ router.post("/send-verification", async (req, res) => {
 router.post("/verify-code", (req, res) => {
   const { email, code } = req.body;
   if (!email || !code) {
-    return res.status(400).send({ success: false, error: "Email and code are required" });
+    es.status(400).send({ success: false, error: "Email and code are required" });
   }
 
   const result = validateCode(email, code);
