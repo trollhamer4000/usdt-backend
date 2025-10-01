@@ -33,7 +33,7 @@ async function generateUniqueRecoveryId(email, walletAddress, nameTag, blobs) {
       return result.rows[0].recovery_id; // (lowercase property)
     } catch (err) {
       if (err.code === "23505") {
-        continue; // try again if duplicate recovery_id
+        continue; // try again if duplicate recoveryid
       }
       throw err;
     }
