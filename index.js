@@ -10,6 +10,7 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+console.log("SendGrid Key starts with:", process.env.SENDGRID_API_KEY?.slice(0, 3));
 
 // 🔍 Log every incoming request
 app.use((req, res, next) => {
