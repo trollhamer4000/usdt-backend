@@ -17,8 +17,8 @@ export async function sendVerificationEmail(email) {
     to: email,
     from: process.env.FROM_EMAIL,
     subject: "Your Wallet Verification Code",
-    text: Your verification code is: ${code},
-    html: <p>Your verification code is: <strong>${code}</strong></p>,
+    text: `Your verification code is: ${code}`,
+    html: `<p>Your verification code is: <strong>${code}</strong></p>`,
   };
 
   try {
