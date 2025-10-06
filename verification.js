@@ -2,7 +2,7 @@
 import sgMail from "@sendgrid/mail";
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
+console.log("🧠 Loaded SendGrid key (first 10):", process.env.SENDGRID_API_KEY?.slice(0, 10));
 const verificationCodes = new Map();
 
 export function generateVerificationCode() {
