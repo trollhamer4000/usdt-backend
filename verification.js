@@ -1,71 +1,48 @@
-import nodemailer from "nodemailer";
+// verification.js
+import sgMail from "@sendgrid/mail";
 
-const verificationCodes = {};
-const MAX_ATTEMPTS = 5;
-const CODE_TTL = 5 * 60 * 1000; // 5 minutes
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-function generateCode() {
+const verificationCodes = new Map();
+
+export function generateVerificationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-function checkEnv() {
-  if (!process.env.EMAIL_USER) console.warn("⚠️ EMAIL_USER is not set.");
-  if (!process.env.EMAIL_PASS) console.warn("⚠️ EMAIL_PASS is not set.");
-}
-
-// ✅ Send verification email
 export async function sendVerificationEmail(email) {
-  checkEnv();
+  const code = generateVerificationCode();
+  verificationCodes.set(email, { code, createdAt: Date.now() });
 
-  const code = generateCode();
-  verificationCodes[email] = { code, expires: Date.now() + CODE_TTL, attempts: 0 };
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // should be App Password if using Gmail
-    },
-  });
-
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
+  const msg = {
     to: email,
-    subject: "USDT Vault Verification Code",
-    text: `Your verification code is: ${code}. It expires in 5 minutes.`,
+    from: process.env.FROM_EMAIL,
+    subject: "Your Wallet Verification Code",
+    text: Your verification code is: ${code},
+    html: <p>Your verification code is: <strong>${code}</strong></p>,
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent to ${email}: ${info.response}`);
-    console.log(`📝 Verification code for debugging: ${code}`); // optional
-    return code;
+    await sgMail.send(msg);
+    console.log(`✅ Verification email sent to ${email}`);
   } catch (err) {
     console.error("❌ Failed to send email:", err.message);
-    throw new Error("Failed to send verification email.");
+    throw err;
   }
 }
 
-// ✅ Validate the code
-export function validateCode(email, code) {
-  const entry = verificationCodes[email];
-  if (!entry) return { valid: false, reason: "Code not found" };
+export function validateCode(email, inputCode) {
+  const record = verificationCodes.get(email);
+  if (!record) return { valid: false, reason: "No code found for this email" };
 
-  if (Date.now() > entry.expires) {
-    delete verificationCodes[email];
+  const expired = Date.now() - record.createdAt > 10 * 60 * 1000;
+  if (expired) {
+    verificationCodes.delete(email);
     return { valid: false, reason: "Code expired" };
   }
 
-  if (entry.attempts >= MAX_ATTEMPTS) {
-    delete verificationCodes[email];
-    return { valid: false, reason: "Too many attempts" };
-  }
+  if (record.code !== inputCode)
+    return { valid: false, reason: "Invalid code" };
 
-  entry.attempts++;
-  if (entry.code === code) {
-    delete verificationCodes[email];
-    return { valid: true };
-  }
-
-  return { valid: false, reason: "Invalid code" };
+  verificationCodes.delete(email);
+  return { valid: true };
 }
