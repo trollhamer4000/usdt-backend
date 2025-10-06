@@ -6,6 +6,8 @@ import { connectDB } from "./db.js";
 import accountsRouter from "./accounts.js";
 
 dotenv.config();
+console.log("🔐 SENDGRID_API_KEY starts with:", process.env.SENDGRID_API_KEY?.substring(0, 3));
+console.log("🔐 FROM_EMAIL:", process.env.FROM_EMAIL);
 
 const app = express();
 app.use(cors());
