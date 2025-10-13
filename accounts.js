@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { query } from "./db.js";
+import crypto from "crypto";
 import { sendVerificationEmail, validateCode } from "./verification.js";
 
 const router = Router();
@@ -28,21 +29,14 @@ router.post("/request_recovery_id", async (req, res) => {
     let recoveryId;
     while (true) {
       const candidate = generateRecoveryId();
-
-      // check DB if candidate already exists
-      const existing = await query(
-        "SELECT 1 FROM users WHERE recovery_id = $1",
-        [candidate]
-      );
-
+      const existing = await query("SELECT 1 FROM users WHERE recovery_id = $1", [candidate]);
       if (existing.rowCount === 0) {
         recoveryId = candidate;
         break;
       }
-      // else loop again to generate new candidate
     }
 
-    res.send({ success: true, recoveryId }); // ✅ camelCase for Flutter
+    res.send({ success: true, recoveryId });
   } catch (err) {
     console.error("❌ Failed to generate recoveryId:", err.message);
     res.status(500).send({ success: false, error: "Server error" });
@@ -68,11 +62,9 @@ async function generateUniqueRecoveryId(email, walletAddress, nameTag, blobs) {
         throw new Error("Failed to generate recoveryId");
       }
 
-      return result.rows[0].recovery_id; // snake_case from DB
+      return result.rows[0].recovery_id;
     } catch (err) {
-      if (err.code === "23505") {
-        continue; // try again if duplicate recoveryid
-      }
+      if (err.code === "23505") continue;
       throw err;
     }
   }
@@ -95,18 +87,57 @@ router.post("/create_account", async (req, res) => {
     }
 
     const recovery_id = await generateUniqueRecoveryId(email, walletAddress, nameTag, blobs);
-    res.send({ success: true, recoveryId: recovery_id }); // ✅ camelCase response
+    res.send({ success: true, recoveryId: recovery_id });
   } catch (err) {
     console.error("❌ Create account error:", err.message);
     res.status(500).send({ success: false, error: "Server error" });
   }
 });
 
+
+// ✅ -------------------
+// Login Route (Added Here)
+// ✅ -------------------
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const { rows } = await query("SELECT * FROM users WHERE email = $1", [email]);
+    if (rows.length === 0) return res.json({ success: false, error: "Account not found" });
+
+    const user = rows[0];
+
+    const storedSalt = Buffer.from(user.passwordsalt, "base64");
+    const storedHash = user.passwordhash;
+
+    const derivedKey = crypto.pbkdf2Sync(password, storedSalt, 200000, 32, "sha256");
+    const computedHash = Buffer.from(derivedKey).toString("base64");
+
+    if (computedHash !== storedHash) {
+      return res.json({ success: false, error: "Invalid credentials" });
+    }
+
+    res.json({
+      success: true,
+      account: {
+        email: user.email,
+        wallet_name: user.nametag, // your column name is likely nameTag
+        wallet_address: user.walletaddress,
+        encrypted_mnemonic: user.blobs?.encrypted_mnemonic,
+        encrypted_privateKey: user.blobs?.encrypted_privateKey,
+        recoveryId: user.recovery_id
+      }
+    });
+  } catch (err) {
+    console.error("Login error:", err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+
 // -------------------
 // Email Verification Routes
 // -------------------
-
-// Send verification email
 router.post("/send-verification", async (req, res) => {
   const { email } = req.body;
   if (!email) {
@@ -122,7 +153,6 @@ router.post("/send-verification", async (req, res) => {
   }
 });
 
-// Verify code
 router.post("/verify-code", (req, res) => {
   const { email, code } = req.body;
   if (!email || !code) {
@@ -137,21 +167,15 @@ router.post("/verify-code", (req, res) => {
   }
 });
 
-export default router;
-
 // -------------------
 // DEBUG: List tables and peek at users table
 // -------------------
 router.get("/debug/db", async (req, res) => {
   try {
-    // List all tables in public schema
     const tables = await query(
-      `SELECT table_name
-       FROM information_schema.tables
-       WHERE table_schema='public'`
+      `SELECT table_name FROM information_schema.tables WHERE table_schema='public'`
     );
 
-    // Peek at first 5 rows of users table (if it exists)
     let usersRows = [];
     try {
       const result = await query(`SELECT * FROM users LIMIT 5`);
@@ -166,3 +190,5 @@ router.get("/debug/db", async (req, res) => {
     res.status(500).send({ success: false, error: err.message });
   }
 });
+
+export default router;
