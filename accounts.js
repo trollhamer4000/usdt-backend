@@ -96,16 +96,36 @@ router.post("/create_account", async (req, res) => {
 
 
 // ✅ -------------------
-// Login Route (Added Here)
+// Login Route (Added Debug Logging)
 // ✅ -------------------
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
+  // 🟢 DEBUG LOGGING — to confirm incoming request
+  console.log("📩 [LOGIN REQUEST RECEIVED]");
+  console.log({
+    time: new Date().toISOString(),
+    ip: req.ip,
+    email,
+    passwordLength: password ? password.length : 0,
+    userAgent: req.headers["user-agent"],
+  });
+
   try {
     const { rows } = await query("SELECT * FROM users WHERE email = $1", [email]);
-    if (rows.length === 0) return res.json({ success: false, error: "Account not found" });
+    console.log("🔍 Query result:", rows.length, "user(s) found");
+
+    if (rows.length === 0) {
+      console.log("❌ Account not found for:", email);
+      return res.json({ success: false, error: "Account not found" });
+    }
 
     const user = rows[0];
+
+    if (!user.passwordsalt || !user.passwordhash) {
+      console.log("⚠️ Missing password fields for:", email);
+      return res.json({ success: false, error: "Password not set on server" });
+    }
 
     const storedSalt = Buffer.from(user.passwordsalt, "base64");
     const storedHash = user.passwordhash;
@@ -113,9 +133,14 @@ router.post("/login", async (req, res) => {
     const derivedKey = crypto.pbkdf2Sync(password, storedSalt, 200000, 32, "sha256");
     const computedHash = Buffer.from(derivedKey).toString("base64");
 
+    console.log("🔑 Comparing hashes -> computed:", computedHash.slice(0, 8), "... stored:", storedHash.slice(0, 8), "...");
+
     if (computedHash !== storedHash) {
+      console.log("❌ Invalid credentials for:", email);
       return res.json({ success: false, error: "Invalid credentials" });
     }
+
+    console.log("✅ Login SUCCESS for:", email, "| IP:", req.ip);
 
     res.json({
       success: true,
@@ -129,7 +154,7 @@ router.post("/login", async (req, res) => {
       }
     });
   } catch (err) {
-    console.error("Login error:", err.message);
+    console.error("🔥 Login error:", err.message);
     res.status(500).json({ success: false, error: "Server error" });
   }
 });
