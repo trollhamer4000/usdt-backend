@@ -71,7 +71,7 @@ async function generateUniqueRecoveryId(email, walletAddress, nameTag, blobs) {
 }
 
 // -------------------
-// Create Account
+// Create Account (with duplicate checks)
 // -------------------
 router.post("/create_account", async (req, res) => {
   const { email, walletAddress, nameTag, blobs } = req.body;
@@ -81,13 +81,28 @@ router.post("/create_account", async (req, res) => {
   }
 
   try {
+    // 🧩 Check if email already exists
     const existingEmail = await query("SELECT 1 FROM users WHERE email = $1", [email]);
     if (existingEmail.rowCount > 0) {
       return res.status(400).send({ success: false, error: "Email already exists" });
     }
 
+    // 🧩 Check if wallet name already exists
+    const existingName = await query("SELECT 1 FROM users WHERE nametag = $1", [nameTag]);
+    if (existingName.rowCount > 0) {
+      return res.status(400).send({ success: false, error: "Wallet name already exists" });
+    }
+
+    // 🧩 Check if wallet address already exists
+    const existingAddress = await query("SELECT 1 FROM users WHERE walletaddress = $1", [walletAddress]);
+    if (existingAddress.rowCount > 0) {
+      return res.status(400).send({ success: false, error: "Wallet address already exists" });
+    }
+
+    // ✅ Generate unique recovery ID and create account
     const recovery_id = await generateUniqueRecoveryId(email, walletAddress, nameTag, blobs);
     res.send({ success: true, recoveryId: recovery_id });
+
   } catch (err) {
     console.error("❌ Create account error:", err.message);
     res.status(500).send({ success: false, error: "Server error" });
