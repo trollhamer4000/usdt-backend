@@ -127,7 +127,7 @@ router.post("/login", async (req, res) => {
   });
 
   try {
-    const { rows } = await query("SELECT * FROM users WHERE email = $1", [email]);
+    const { rows } = await query("SELECT * FROM users WHERE LOWER(email) = LOWER($1)", [email]);
     console.log("🔍 Query result:", rows.length, "user(s) found");
 
     if (rows.length === 0) {
